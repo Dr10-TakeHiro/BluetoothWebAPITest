@@ -1,0 +1,143 @@
+<html>
+
+<head>
+    <script type="text/javascript" src="bluejelly.js"></script>
+</head>
+
+<body>
+    <input type="button" value="Init!" id="read" />
+    <input type="button" value="Request!" id="write" />
+    <table id="variable_tbl" border="1">
+    </table>
+    <script>
+        var updateIndex = function (tblEl) {
+            var table = document.getElementById(tblEl);
+            Array.forEach(table.rows,
+                x => x.cells[0].innerHTML = x.sectionRowIndex + 1);
+        }
+        var addLine = function (tblEl) {
+
+            // テーブルの要素取得
+            var table = document.getElementById(tblEl);
+
+            // 行を行末に追加
+            // 0指定で先頭追加
+            var tr = table.insertRow(-1);
+
+            // セルの挿入
+            // 0指定で先頭挿入
+            var table_data = [
+                tr.insertCell(-1),  // Index
+                tr.insertCell(-1),  // Name
+                tr.insertCell(-1),  // Value
+                tr.insertCell(-1),  // Read
+                tr.insertCell(-1),  // Write
+            ];
+
+            // ボタン用 タグ
+            var write_button = '<input type="button" value="Write" onclick="writeVariable(this)" />';
+            var read_button = '<input type="button" value="Read" onclick="readVariable(this)" />';
+            // input用 タグ
+            var value = '<input type="number" step=0.00001 value="" />';
+
+            // セルへ要素を挿入する
+            table_data[1].innerHTML = "Hogehoge";
+            table_data[2].innerHTML = value;
+            table_data[3].innerHTML = read_button;
+            table_data[4].innerHTML = write_button;
+        }
+
+        /**
+         * 対象行の削除
+         * @param input
+         */
+        var delLines = function (tblEl) {
+            var table = document.getElementById(tblEl);
+            while (table.rows.length > 0) {
+                table.deleteRow(0);
+            }
+        }
+        var str2array = function (str) {
+            var array = [], i, il = str.length;
+            for (i = 0; i < il; i++) array.push(str.charCodeAt(i));
+            return array;
+        };
+        var writeVariable = function (targetEl) {
+            tr = targetEl.parentNode.parentNode;
+            string_buf = "{" + tr.cells[0].innerHTML + "," + tr.cells[2].getElementsByTagName("input")[0].value + "}";
+            ble.write("rx", str2array(string_buf));
+        }
+        var readVariable = function (targetEl) {
+            tr = targetEl.parentNode.parentNode;
+            string_buf = "l" + tr.cells[0].innerHTML;
+            ble.write("rx", str2array(string_buf));
+        }
+        //--------------------------------------------------
+        //Global変数
+        //--------------------------------------------------
+        //BlueJellyのインスタンス生成
+        var ble = new BlueJelly();
+
+
+        //--------------------------------------------------
+        //ロード時の処理
+        //--------------------------------------------------
+        window.onload = function () {
+            //UUIDの設定
+            ble.setUUID("UUID1", "00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000000");
+            ble.setUUID("tx", "6e400001-b5a3-f393-e0a9-e50e24dcca9e", "6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+            ble.setUUID("rx", "6e400001-b5a3-f393-e0a9-e50e24dcca9e", "6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+            ble.setUUID("device_name", "1800", "2a00");
+        }
+
+
+        //--------------------------------------------------
+        //Scan後の処理
+        //--------------------------------------------------
+        ble.onScan = function (deviceName) {
+            document.getElementById('device_name').innerHTML = deviceName;
+        }
+
+
+        //-------------------------------------------------
+        //ボタンが押された時のイベント登録
+        //--------------------------------------------------
+        document.getElementById('read').addEventListener('click', function () {
+            console.log(ble.scan("tx"));
+            ble.startNotify("tx");
+        });
+        document.getElementById('write').addEventListener('click', function () {
+            ble.write("rx", [0x6c]);
+        });
+        var buf = "";
+        ble.onRead = function (data, uuid) {
+            var recieved = String.fromCharCode.apply("", new Uint8Array(data.buffer));
+            console.log(recieved);
+            buf += recieved;
+            if (buf.split("\n", 1)[0].length != buf.length) {
+                updateTable("variable_tbl", buf.split("\n", 1)[0]);
+                buf = buf.slice(buf.split("\n", 1)[0].length + 1);
+            }
+        }
+
+        var updateTable = function (tblEl, recieved_line) {
+            var table = document.getElementById(tblEl);
+            var regex = /{(.+),(.+),(.+)}/;
+            regex_result = recieved_line.match(regex);
+            if (regex_result == null) {
+                return;
+            }
+            line_num = parseInt(regex_result[1]);
+            line_name = regex_result[2];
+            line_value = parseFloat(regex_result[3]);
+            while (table.rows.length < line_num + 1) {
+                addLine(tblEl);
+            }
+            table.rows[line_num].cells[0].innerHTML = ("0" + line_num).slice(-2);
+            table.rows[line_num].cells[1].innerHTML = line_name;
+            table.rows[line_num].cells[2].getElementsByTagName("input")[0].value = line_value;
+        }
+    </script>
+</body>
+
+</html>
