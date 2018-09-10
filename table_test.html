@@ -5,8 +5,11 @@
 </head>
 
 <body>
-    <input type="button" value="Init!" id="read" />
-    <input type="button" value="Request!" id="write" />
+    <input type="button" value="Init" id="read" />
+    <input type="button" value="Request" id="write" />
+    <input type="button" value="Save to flash." id="save" />
+    <input type="button" value="Restore from flash." id="restore" />
+    <input type="button" value="Delete flash." id="delete" />
     <table id="variable_tbl" border="1">
     </table>
     <script>
@@ -107,7 +110,16 @@
             ble.startNotify("tx");
         });
         document.getElementById('write').addEventListener('click', function () {
-            ble.write("rx", [0x6c]);
+            ble.write("rx", str2array("l0"));
+        });
+        document.getElementById('delete').addEventListener('click', function () {
+            ble.write("rx", str2array("fd"));
+        });
+        document.getElementById('restore').addEventListener('click', function () {
+            ble.write("rx", str2array("fr"));
+        });
+        document.getElementById('save').addEventListener('click', function () {
+            ble.write("rx", str2array("fw"));
         });
         var buf = "";
         ble.onRead = function (data, uuid) {
@@ -115,6 +127,7 @@
             console.log(recieved);
             buf += recieved;
             if (buf.split("\n", 1)[0].length != buf.length) {
+                console.log(buf.split("\n", 1)[0]);
                 updateTable("variable_tbl", buf.split("\n", 1)[0]);
                 buf = buf.slice(buf.split("\n", 1)[0].length + 1);
             }
@@ -136,6 +149,9 @@
             table.rows[line_num].cells[0].innerHTML = ("0" + line_num).slice(-2);
             table.rows[line_num].cells[1].innerHTML = line_name;
             table.rows[line_num].cells[2].getElementsByTagName("input")[0].value = line_value;
+            if (table.rows.length == line_num + 1) {
+                setTimeout((string_buf) => { ble.write("rx", str2array(string_buf)); }, 100, "l" + (line_num + 1));
+            }
         }
     </script>
 </body>
